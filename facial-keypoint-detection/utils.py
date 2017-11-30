@@ -111,3 +111,62 @@ def train(num_epoch, X, y, X_test, name="", ratio_val=0.2):
         y_pred = sess.run(predict, feed_dict={images: X_test})
 
     return y_pred
+
+
+def train_cnn(num_epoch, X, y, X_test, name, ratio_val=0.2):
+    tf.reset_default_graph()
+
+    num_total, _ = X.shape
+    num_val = int(num_total * ratio_val)
+    X_train = X[:num_val, :]
+    y_train = y[:num_val, :]
+    X_val = X[num_val:, :]
+    y_val = y[num_val:, :]
+
+    images = tf.placeholder(tf.float32, shape=(None, 9216))
+    truth = tf.placeholder(tf.float32, shape=(None, 30))
+
+    input_layer = tf.reshape(images, [-1, 96, 96, 1])
+    conv1 = tf.layers.conv2d(inputs=input_layer, filters=32, kernel_size=[3, 3], padding="same", activation=tf.nn.relu)
+    pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
+    conv2 = tf.layers.conv2d(inputs=pool1, filters=64, kernel_size=[2, 2], padding="same", activation=tf.nn.relu)
+    pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
+    conv3 = tf.layers.conv2d(inputs=pool2, filters=128, kernel_size=[2, 2], padding="same", activation=tf.nn.relu)
+    pool3 = tf.layers.max_pooling2d(inputs=conv3, pool_size=[2, 2], strides=2)
+    pool3_flat = tf.reshape(pool3, [-1, 12 * 12 * 128])
+    dense1 = tf.layers.dense(inputs=pool3_flat, units=500, activation=tf.nn.relu)
+    dense2 = tf.layers.dense(inputs=dense1, units=500, activation=tf.nn.relu)
+    predict = tf.layers.dense(inputs=dense2, units=30, activation=None)
+
+    loss = tf.losses.mean_squared_error(truth, predict)
+    optimizer = tf.train.MomentumOptimizer(learning_rate=0.01, momentum=0.9, use_nesterov=True).minimize(loss)
+
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+
+        loss_summary = tf.summary.scalar("loss", loss)
+
+        datetime_now = datetime.now().strftime("%Y%m%d_%H:%M:%S")
+        train_summary_path = "{}_{}_train".format(datetime_now, name)
+        val_summary_path = "{}_{}_val".format(datetime_now, name)
+        train_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "summaries", train_summary_path))
+        val_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "summaries", val_summary_path))
+
+        feed_dict_train = {images: X_train, truth: y_train}
+        feed_dict_val = {images: X_val, truth: y_val}
+
+        for e in range(num_epoch):
+            start_ms = int(time.time() * 1000)
+            sess.run(optimizer, feed_dict=feed_dict_train)
+            train_loss_summary, train_loss = sess.run([loss_summary, loss], feed_dict=feed_dict_train)
+            val_loss_summary = sess.run(loss_summary, feed_dict=feed_dict_val)
+            elapsed_ms = int(time.time() * 1000) - start_ms
+            print("Epoch: {:4d}\tTraining Loss: {:.7f}\tElapsed Time(ms): {:6d}".format(e, train_loss, elapsed_ms))
+            train_writer.add_summary(train_loss_summary, global_step=e)
+            val_writer.add_summary(val_loss_summary, global_step=e)
+            train_writer.flush()
+            val_writer.flush()
+
+        y_pred = sess.run(predict, feed_dict={images: X_test})
+
+    return y_pred
