@@ -59,13 +59,13 @@ def train(num_epoch, X, y, X_test, name=""):
     truth = tf.placeholder(tf.float32, shape=(None, 30))
 
     with tf.name_scope("hidden"):
-        weights = tf.Variable(tf.truncated_normal([9216, 100], stddev=1.0 / math.sqrt(float(9216))), name="weights")
-        biases = tf.Variable(tf.zeros([100]), name="biases")
-        hidden = tf.nn.relu(tf.matmul(images, weights) + biases)
+        w1 = tf.get_variable("W1", shape=[9216, 100], initializer=tf.contrib.layers.xavier_initializer())
+        b1 = tf.Variable(tf.zeros([100]), name="biases")
+        hidden = tf.nn.relu(tf.matmul(images, w1) + b1)
     with tf.name_scope("mse_linear"):
-        weights = tf.Variable(tf.truncated_normal([100, 30], stddev=1.0 / math.sqrt(float(100))), name="weights")
-        biases = tf.Variable(tf.zeros([30]), name="biases")
-        predict = tf.matmul(hidden, weights) + biases
+        w2 = tf.get_variable("W2", shape=[100, 30], initializer=tf.contrib.layers.xavier_initializer())
+        b2 = tf.Variable(tf.zeros([30]), name="biases")
+        predict = tf.matmul(hidden, w2) + b2
 
     loss = tf.losses.mean_squared_error(truth, predict)
     # MNIST 쪽 예제에서는 global_step 을 만들어서 추가로 넣어줬었다.
