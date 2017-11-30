@@ -1,4 +1,4 @@
-import math
+from datetime import datetime
 import os
 import time
 
@@ -46,13 +46,14 @@ def plot_sample(x, y, axis):
     axis.scatter(y[0::2] * 48 + 48, y[1::2] * 48 + 48, marker='x', s=50, c='r')
 
 
-def train(num_epoch, X, y, X_test):
+def train(num_epoch, X, y, X_test, name=""):
     """
     https://www.tensorflow.org/get_started/mnist/mechanics
     tensorflow feed forward example 로 검색해서 나온 [코드를](https://gist.github.com/vinhkhuc/e53a70f9e5c3f55852b0) 참고해봤다.
     mini-batch training 에 필요한 hyper-parameter 들은 [Kaggle 이 소개한 블로그 포스트를](http://danielnouri.org/notes/2014/12/17/using-convolutional-neural-nets-to-detect-facial-keypoints-tutorial/) 따라해보자.
     위의 블로그 포스트에서도 첫번째 model 에서는 full-batch 로 학습시키는것 같으므로, 우선은 mini-batch 는 구현하지 않고 진행해보자.
     """
+    tf.reset_default_graph()  # notebook 에서 train 함수를 호출할때 InvalidArgumentError 가 발생하는걸 방지하기 위함
 
     images = tf.placeholder(tf.float32, shape=(None, 9216))
     truth = tf.placeholder(tf.float32, shape=(None, 30))
@@ -74,22 +75,23 @@ def train(num_epoch, X, y, X_test):
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-        # tf.summary.scalar("loss", loss)
-        # merged = tf.summary.merge_all()
-        # train_writer = tf.summary.FileWriter(summary_file_path(postfix), sess.graph)
+
+        tf.summary.scalar("loss", loss)
+        merged = tf.summary.merge_all()
+        file_path = "{}_{}".format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S"), name)
+        train_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "summaries", file_path))
 
         feed_dict = {images: X, truth: y}
 
         for e in range(num_epoch):
             start_ms = int(time.time() * 1000)
             sess.run(optimizer, feed_dict=feed_dict)
-            # summary, training_loss = sess.run([merged, loss], feed_dict=feed_dict)
-            training_loss = sess.run(loss, feed_dict=feed_dict)
-            # train_writer.add_summary(summary, e)
+            summary, training_loss = sess.run([merged, loss], feed_dict=feed_dict)
             elapsed_ms = int(time.time() * 1000) - start_ms
             print("Epoch: {:4d}\tTraining Loss: {:.7f}\tElapsed Time(ms): {:6d}".format(e, training_loss, elapsed_ms))
+            train_writer.add_summary(summary, e)
+            train_writer.flush()
 
-        # train_writer.close()
         y_pred = sess.run(predict, feed_dict={images: X_test})
 
     return y_pred

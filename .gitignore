@@ -4,3 +4,5 @@ facial-keypoint-detection/training.csv
 facial-keypoint-detection/training.zip
 facial-keypoint-detection/.idea
 facial-keypoint-detection/.ipynb_checkpoints
+facial-keypoint-detection/__pycache__
+facial-keypoint-detection/summaries
