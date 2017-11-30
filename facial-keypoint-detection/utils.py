@@ -77,7 +77,6 @@ def train(num_epoch, X, y, X_test, name="", ratio_val=0.2):
         predict = tf.matmul(hidden, w2) + b2
 
     loss = tf.losses.mean_squared_error(truth, predict)
-    loss_val = tf.losses.mean_squared_error(truth, predict)
     # MNIST 쪽 예제에서는 global_step 을 만들어서 추가로 넣어줬었다.
     # global_step = tf.Variable(0, name="global_step", trainable=False)
     # train_op = optimizer.minimize(loss, global_step=global_step)
@@ -86,10 +85,13 @@ def train(num_epoch, X, y, X_test, name="", ratio_val=0.2):
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
-        training_summary = tf.summary.scalar("loss", loss)
-        validation_summary = tf.summary.scalar("loss_val", loss_val)
-        file_path = "{}_{}".format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S"), name)
-        train_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "summaries", file_path))
+        loss_summary = tf.summary.scalar("loss", loss)
+
+        datetime_now = datetime.now().strftime("%Y%m%d_%H:%M:%S")
+        train_summary_path = "{}_{}_train".format(datetime_now, name)
+        val_summary_path = "{}_{}_val".format(datetime_now, name)
+        train_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "summaries", train_summary_path))
+        val_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "summaries", val_summary_path))
 
         feed_dict_train = {images: X_train, truth: y_train}
         feed_dict_val = {images: X_val, truth: y_val}
@@ -97,13 +99,14 @@ def train(num_epoch, X, y, X_test, name="", ratio_val=0.2):
         for e in range(num_epoch):
             start_ms = int(time.time() * 1000)
             sess.run(optimizer, feed_dict=feed_dict_train)
-            training_summ, training_loss = sess.run([training_summary, loss], feed_dict=feed_dict_train)
-            validation_summ, _ = sess.run([validation_summary, loss_val], feed_dict=feed_dict_val)
+            train_loss_summary, train_loss = sess.run([loss_summary, loss], feed_dict=feed_dict_train)
+            val_loss_summary = sess.run(loss_summary, feed_dict=feed_dict_val)
             elapsed_ms = int(time.time() * 1000) - start_ms
-            print("Epoch: {:4d}\tTraining Loss: {:.7f}\tElapsed Time(ms): {:6d}".format(e, training_loss, elapsed_ms))
-            train_writer.add_summary(training_summ, e)
-            train_writer.add_summary(validation_summ, e)
+            print("Epoch: {:4d}\tTraining Loss: {:.7f}\tElapsed Time(ms): {:6d}".format(e, train_loss, elapsed_ms))
+            train_writer.add_summary(train_loss_summary, global_step=e)
+            val_writer.add_summary(val_loss_summary, global_step=e)
             train_writer.flush()
+            val_writer.flush()
 
         y_pred = sess.run(predict, feed_dict={images: X_test})
 
