@@ -141,6 +141,8 @@ def train_cnn(num_epoch, X, y, X_test, name, ratio_val=0.2):
     loss = tf.losses.mean_squared_error(truth, predict)
     optimizer = tf.train.MomentumOptimizer(learning_rate=0.01, momentum=0.9, use_nesterov=True).minimize(loss)
 
+    saver = tf.train.Saver()
+
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
@@ -156,6 +158,11 @@ def train_cnn(num_epoch, X, y, X_test, name, ratio_val=0.2):
         feed_dict_val = {images: X_val, truth: y_val}
 
         for e in range(num_epoch):
+            if e > 0 and e % 100 == 0:
+                save_dir = "checkpoints/{}_{}/{:05d}".format(datetime_now, name, e)
+                os.makedirs(save_dir)
+                save_path = "{}/ckpt".format(save_dir)
+                print("model has saved in path: {}".format(saver.save(sess, save_path)))
             start_ms = int(time.time() * 1000)
             sess.run(optimizer, feed_dict=feed_dict_train)
             train_loss_summary, train_loss = sess.run([loss_summary, loss], feed_dict=feed_dict_train)
