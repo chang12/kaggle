@@ -3,9 +3,23 @@ import os
 import time
 
 import numpy as np
+import pandas as pd
 from pandas.io.parsers import read_csv
 from sklearn.utils import shuffle
 import tensorflow as tf
+
+KEY_POINT_NAMES = [
+    "left_eye_center_x", "left_eye_center_y", "right_eye_center_x", "right_eye_center_y",
+    "left_eye_inner_corner_x", "left_eye_inner_corner_y", "left_eye_outer_corner_x", "left_eye_outer_corner_y",
+    "right_eye_inner_corner_x", "right_eye_inner_corner_y", "right_eye_outer_corner_x", "right_eye_outer_corner_y",
+    "left_eyebrow_inner_end_x", "left_eyebrow_inner_end_y", "left_eyebrow_outer_end_x", "left_eyebrow_outer_end_y",
+    "right_eyebrow_inner_end_x", "right_eyebrow_inner_end_y", "right_eyebrow_outer_end_x", "right_eyebrow_outer_end_y",
+    "nose_tip_x", "nose_tip_y",
+    "mouth_left_corner_x", "mouth_left_corner_y", "mouth_right_corner_x", "mouth_right_corner_y",
+    "mouth_center_top_lip_x", "mouth_center_top_lip_y", "mouth_center_bottom_lip_x", "mouth_center_bottom_lip_y"
+]
+
+ID_LOOKUP_TABLE_PATH = "submissions/IdLookupTable.csv"
 
 
 def load(test=False, cols=None, verbose=False):
@@ -113,20 +127,11 @@ def train(num_epoch, X, y, X_test, name="", ratio_val=0.2):
     return y_pred
 
 
-def train_cnn(num_epoch, X, y, X_test, name, ratio_val=0.2):
+def get_cnn():
     tf.reset_default_graph()
 
-    num_total, _ = X.shape
-    num_val = int(num_total * ratio_val)
-    X_train = X[:num_val, :]
-    y_train = y[:num_val, :]
-    X_val = X[num_val:, :]
-    y_val = y[num_val:, :]
-
-    images = tf.placeholder(tf.float32, shape=(None, 9216))
-    truth = tf.placeholder(tf.float32, shape=(None, 30))
-
-    input_layer = tf.reshape(images, [-1, 96, 96, 1])
+    input_images = tf.placeholder(tf.float32, shape=(None, 9216))
+    input_layer = tf.reshape(input_images, [-1, 96, 96, 1])
     conv1 = tf.layers.conv2d(inputs=input_layer, filters=32, kernel_size=[3, 3], padding="same", activation=tf.nn.relu)
     pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
     conv2 = tf.layers.conv2d(inputs=pool1, filters=64, kernel_size=[2, 2], padding="same", activation=tf.nn.relu)
@@ -137,6 +142,22 @@ def train_cnn(num_epoch, X, y, X_test, name, ratio_val=0.2):
     dense1 = tf.layers.dense(inputs=pool3_flat, units=500, activation=tf.nn.relu)
     dense2 = tf.layers.dense(inputs=dense1, units=500, activation=tf.nn.relu)
     predict = tf.layers.dense(inputs=dense2, units=30, activation=None)
+
+    return input_images, predict
+
+
+def train_cnn(num_epoch, X, y, X_test, name, ratio_val=0.2):
+    tf.reset_default_graph()
+
+    num_total, _ = X.shape
+    num_val = int(num_total * ratio_val)
+    X_train = X[:num_val, :]
+    y_train = y[:num_val, :]
+    X_val = X[num_val:, :]
+    y_val = y[num_val:, :]
+
+    input_images, predict = get_cnn()
+    truth = tf.placeholder(tf.float32, shape=(None, 30))
 
     loss = tf.losses.mean_squared_error(truth, predict)
     optimizer = tf.train.MomentumOptimizer(learning_rate=0.01, momentum=0.9, use_nesterov=True).minimize(loss)
@@ -154,15 +175,10 @@ def train_cnn(num_epoch, X, y, X_test, name, ratio_val=0.2):
         train_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "summaries", train_summary_path))
         val_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "summaries", val_summary_path))
 
-        feed_dict_train = {images: X_train, truth: y_train}
-        feed_dict_val = {images: X_val, truth: y_val}
+        feed_dict_train = {input_images: X_train, truth: y_train}
+        feed_dict_val = {input_images: X_val, truth: y_val}
 
-        for e in range(num_epoch):
-            if e > 0 and e % 100 == 0:
-                save_dir = "checkpoints/{}_{}/{:05d}".format(datetime_now, name, e)
-                os.makedirs(save_dir)
-                save_path = "{}/ckpt".format(save_dir)
-                print("model has saved in path: {}".format(saver.save(sess, save_path)))
+        for e in range(1, num_epoch + 1):
             start_ms = int(time.time() * 1000)
             sess.run(optimizer, feed_dict=feed_dict_train)
             train_loss_summary, train_loss = sess.run([loss_summary, loss], feed_dict=feed_dict_train)
@@ -174,6 +190,39 @@ def train_cnn(num_epoch, X, y, X_test, name, ratio_val=0.2):
             train_writer.flush()
             val_writer.flush()
 
-        y_pred = sess.run(predict, feed_dict={images: X_test})
+            if e % 100 == 0 or e == num_epoch:
+                save_dir = "checkpoints/{}_{}/{:05d}".format(datetime_now, name, e)
+                os.makedirs(save_dir)
+                save_path = "{}/ckpt".format(save_dir)
+                print("model has saved in path: {}".format(saver.save(sess, save_path)))
+
+        y_pred = sess.run(predict, feed_dict={input_images: X_test})
 
     return y_pred
+
+
+def prepare_submission(X_test, dir_name, target_epoch):
+    ckpt_path = os.path.join(os.getcwd(), "checkpoints", dir_name, "{:05d}".format(target_epoch), "ckpt")
+
+    input_images, predict = get_cnn()
+    saver = tf.train.Saver()
+    with tf.Session() as sess:
+        saver.restore(sess, ckpt_path)
+        out = sess.run(predict, feed_dict={input_images: X_test})
+    v_scale_up = np.vectorize(lambda v: v * 48 + 48)
+    pixels = v_scale_up(out)
+
+    df_image_id = pd.DataFrame(data=list(range(1, X_test.shape[0] + 1)), columns=["ImageId"])
+    df_pixels = pd.DataFrame(data=pixels, columns=KEY_POINT_NAMES)
+    df_key_points_pivot = pd.concat([df_image_id, df_pixels], axis=1)
+    df_key_points = pd.melt(df_key_points_pivot,
+                            id_vars=["ImageId"], value_vars=KEY_POINT_NAMES,
+                            var_name="FeatureName", value_name="Location")
+    df_key_points = df_key_points.sort_values(by=["ImageId"])
+    df_id_lookup = read_csv(ID_LOOKUP_TABLE_PATH)
+
+    submission_csv_path = os.path.join(os.getcwd(), "submissions", "{}_{:05d}.csv".format(dir_name, target_epoch))
+    submission_df = pd.merge(df_id_lookup, df_key_points, on=["ImageId", "FeatureName"], suffixes=["_", ""])
+    submission_df[["RowId", "Location"]].to_csv(submission_csv_path, index=False)
+
+    return submission_csv_path
