@@ -212,7 +212,14 @@ def prepare_submission(X_test, dir_name, target_epoch):
     v_scale_up = np.vectorize(lambda v: v * 48 + 48)
     pixels = v_scale_up(out)
 
-    df_image_id = pd.DataFrame(data=list(range(1, X_test.shape[0] + 1)), columns=["ImageId"])
+    submission_csv_path = os.path.join(os.getcwd(), "submissions", "{}_{:05d}.csv".format(dir_name, target_epoch))
+    prepare_submission_slave(pixels, submission_csv_path)
+
+    return submission_csv_path
+
+
+def prepare_submission_slave(pixels, csv_path):
+    df_image_id = pd.DataFrame(data=list(range(1, pixels.shape[0] + 1)), columns=["ImageId"])
     df_pixels = pd.DataFrame(data=pixels, columns=KEY_POINT_NAMES)
     df_key_points_pivot = pd.concat([df_image_id, df_pixels], axis=1)
     df_key_points = pd.melt(df_key_points_pivot,
@@ -221,8 +228,5 @@ def prepare_submission(X_test, dir_name, target_epoch):
     df_key_points = df_key_points.sort_values(by=["ImageId"])
     df_id_lookup = read_csv(ID_LOOKUP_TABLE_PATH)
 
-    submission_csv_path = os.path.join(os.getcwd(), "submissions", "{}_{:05d}.csv".format(dir_name, target_epoch))
     submission_df = pd.merge(df_id_lookup, df_key_points, on=["ImageId", "FeatureName"], suffixes=["_", ""])
-    submission_df[["RowId", "Location"]].to_csv(submission_csv_path, index=False)
-
-    return submission_csv_path
+    submission_df[["RowId", "Location"]].to_csv(csv_path, index=False)
