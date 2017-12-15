@@ -93,6 +93,20 @@ def get_cnn():
     return input_images, predict
 
 
+def get_exactly_same_fc_with_blog():
+    tf.reset_default_graph()
+
+    input_images = tf.placeholder(tf.float32, shape=(None, 9216))
+    w1 = tf.get_variable("w1", shape=[9216, 100], initializer=tf.keras.initializers.glorot_uniform())
+    b1 = tf.Variable(tf.zeros([100]), dtype=tf.float32)
+    hidden = tf.nn.relu(tf.matmul(input_images, w1) + b1)
+    w2 = tf.get_variable("w2", shape=[100, 30], initializer=tf.keras.initializers.glorot_uniform())
+    b2 = tf.Variable(tf.zeros([30]), dtype=tf.float32)
+    predict = tf.matmul(hidden, w2) + b2
+
+    return input_images, predict
+
+
 def train(num_epoch, X, y, X_test, name, model_fn, ratio_val=0.2):
     num_total, _ = X.shape
     num_val = int(num_total * ratio_val)
