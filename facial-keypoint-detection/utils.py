@@ -22,6 +22,39 @@ KEY_POINT_NAMES = [
 ID_LOOKUP_TABLE_PATH = "submissions/IdLookupTable.csv"
 
 
+class MiniBatchProvider(object):
+    def __init__(self, batch_size, ratio_val):
+        x, y = load()
+        num_val = int(x.shape[0] * ratio_val)
+
+        x_train = x[num_val:, :]
+        y_train = y[num_val:, :]
+        self.x_train, self.y_train = shuffle(x_train, y_train, random_state=42)
+        self.x_val, self.y_val = x[:num_val, :], y[:num_val, :]
+
+        self.batch_size = batch_size
+        self.epoch_idx = 0
+        self.batch_idx = 0
+        self.num_batch = int(x_train.shape[0] / batch_size) + 1
+
+    def prepare(self):
+        curr_array_idx = self.batch_size * self.batch_idx
+        next_array_idx = self.batch_size * (self.batch_idx + 1)
+        x_mini_batch = self.x_train[curr_array_idx:next_array_idx, :]
+        y_mini_batch = self.y_train[curr_array_idx:next_array_idx, :]
+
+        if next_array_idx > self.x_train.shape[0]:
+            self.batch_idx = 0  # epoch 한바퀴 돌았으니 리셋
+            self.epoch_idx += 1
+        else:
+            self.batch_idx += 1  # 다음 mini batch 를 준비
+
+        return x_mini_batch, y_mini_batch, self.x_val, self.y_val
+
+    def get_num_batch(self):
+        return self.num_batch
+
+
 def load(test=False, cols=None, verbose=False):
     df = read_csv("test.csv" if test else "training.csv")
 
@@ -40,7 +73,8 @@ def load(test=False, cols=None, verbose=False):
     if not test:
         y = df[df.columns[:-1]].values
         y = (y - 48) / 48
-        X, y = shuffle(X, y, random_state=42)
+        # shuffle 은 MiniBatchProvider 에서만 하자.
+        # X, y = shuffle(X, y, random_state=42)
         y = y.astype(np.float32)
     else:
         y = None
