@@ -23,11 +23,7 @@ ID_LOOKUP_TABLE_PATH = "submissions/IdLookupTable.csv"
 
 
 def load(test=False, cols=None, verbose=False):
-    FTRAIN = os.environ["FTRAIN"]
-    FTEST = os.environ["FTEST"]
-
-    fname = FTEST if test else FTRAIN
-    df = read_csv(fname)
+    df = read_csv("test.csv" if test else "training.csv")
 
     df["Image"] = df["Image"].apply(lambda im: np.fromstring(im, sep=' '))
 
@@ -110,10 +106,11 @@ def get_exactly_same_fc_with_blog():
 def train(num_epoch, X, y, X_test, name, model_fn, ratio_val=0.2):
     num_total, _ = X.shape
     num_val = int(num_total * ratio_val)
-    X_train = X[:num_val, :]
-    y_train = y[:num_val, :]
-    X_val = X[num_val:, :]
-    y_val = y[num_val:, :]
+    X_train = X[num_val:, :]
+    y_train = y[num_val:, :]
+    X_val = X[:num_val, :]
+    y_val = y[:num_val, :]
+    print("X_train shape: {}".format(X_train.shape))
 
     input_images, predict = model_fn()
     truth = tf.placeholder(tf.float32, shape=(None, 30))
