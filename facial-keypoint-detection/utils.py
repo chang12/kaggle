@@ -137,21 +137,14 @@ def get_exactly_same_fc_with_blog():
     return input_images, predict
 
 
-def train(num_epoch, X, y, X_test, name, model_fn, ratio_val=0.2):
-    num_total, _ = X.shape
-    num_val = int(num_total * ratio_val)
-    X_train = X[num_val:, :]
-    y_train = y[num_val:, :]
-    X_val = X[:num_val, :]
-    y_val = y[:num_val, :]
-    print("X_train shape: {}".format(X_train.shape))
-
+def train(num_epoch, X_test, name, model_fn, batch_size=64, ratio_val=0.2):
     input_images, predict = model_fn()
     truth = tf.placeholder(tf.float32, shape=(None, 30))
 
     loss = tf.losses.mean_squared_error(truth, predict)
     optimizer = tf.train.MomentumOptimizer(learning_rate=0.01, momentum=0.9, use_nesterov=True).minimize(loss)
 
+    provider = MiniBatchProvider(batch_size=batch_size, ratio_val=ratio_val)
     saver = tf.train.Saver()
 
     with tf.Session() as sess:
@@ -165,15 +158,18 @@ def train(num_epoch, X, y, X_test, name, model_fn, ratio_val=0.2):
         train_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "summaries", train_summary_path))
         val_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "summaries", val_summary_path))
 
-        feed_dict_train = {input_images: X_train, truth: y_train}
-        feed_dict_val = {input_images: X_val, truth: y_val}
-
         for e in range(1, num_epoch + 1):
             start_ms = int(time.time() * 1000)
-            sess.run(optimizer, feed_dict=feed_dict_train)
+
+            for b in range(provider.get_num_batch()):
+                x_train, y_train, x_val, y_val = provider.prepare()
+                feed_dict_train = {input_images: x_train, truth: y_train}
+                feed_dict_val = {input_images: x_val, truth: y_val}
+                sess.run(optimizer, feed_dict=feed_dict_train)
+
+            elapsed_ms = int(time.time() * 1000) - start_ms
             train_loss_summary, train_loss = sess.run([loss_summary, loss], feed_dict=feed_dict_train)
             val_loss_summary = sess.run(loss_summary, feed_dict=feed_dict_val)
-            elapsed_ms = int(time.time() * 1000) - start_ms
             print("Epoch: {:4d}\tTraining Loss: {:.7f}\tElapsed Time(ms): {:6d}".format(e, train_loss, elapsed_ms))
             train_writer.add_summary(train_loss_summary, global_step=e)
             val_writer.add_summary(val_loss_summary, global_step=e)
