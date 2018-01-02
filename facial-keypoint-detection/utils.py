@@ -68,16 +68,12 @@ def load(test=False, cols=None, verbose=False):
     if verbose:
         print(df.count())
 
-    df = df.dropna()
-
     X = np.vstack(df["Image"].values) / 255.
     X = X.astype(np.float32)
 
     if not test:
         y = df[df.columns[:-1]].values
         y = (y - 48) / 48
-        # shuffle 은 MiniBatchProvider 에서만 하자.
-        # X, y = shuffle(X, y, random_state=42)
         y = y.astype(np.float32)
     else:
         y = None
@@ -143,8 +139,10 @@ def get_exactly_same_fc_with_blog():
 def train(num_epoch, X_test, name, model_fn, batch_size=64, ratio_val=0.2):
     input_images, predict = model_fn()
     truth = tf.placeholder(tf.float32, shape=(None, 30))
+    mask = tf.placeholder(tf.bool, shape=(None, 30))
 
-    loss = tf.losses.mean_squared_error(truth, predict)
+    loss = tf.losses.mean_squared_error(tf.boolean_mask(truth, mask),
+                                        tf.boolean_mask(predict, mask))
     optimizer = tf.train.MomentumOptimizer(learning_rate=0.01, momentum=0.9, use_nesterov=True).minimize(loss)
 
     provider = MiniBatchProvider(batch_size=batch_size, ratio_val=ratio_val)
@@ -166,8 +164,9 @@ def train(num_epoch, X_test, name, model_fn, batch_size=64, ratio_val=0.2):
 
             for b in range(provider.get_num_batch()):
                 x_train, y_train, x_val, y_val = provider.prepare()
-                feed_dict_train = {input_images: x_train, truth: y_train}
-                feed_dict_val = {input_images: x_val, truth: y_val}
+                m_train, m_val = np.isfinite(y_train), np.isfinite(y_val)
+                feed_dict_train = {input_images: x_train, truth: y_train, mask: m_train}
+                feed_dict_val = {input_images: x_val, truth: y_val, mask: m_val}
                 sess.run(optimizer, feed_dict=feed_dict_train)
 
             elapsed_ms = int(time.time() * 1000) - start_ms
