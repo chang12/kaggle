@@ -44,10 +44,13 @@ class MiniBatchProvider(object):
         y_mini_batch = self.y_train[curr_array_idx:next_array_idx, :]
 
         if next_array_idx > self.x_train.shape[0]:
-            self.batch_idx = 0  # epoch 한바퀴 돌았으니 리셋
+            # epoch 한바퀴 돌았으니 리셋하고 다시 shuffle
+            self.batch_idx = 0
             self.epoch_idx += 1
+            self.x_train, self.y_train = shuffle(self.x_train, self.y_train, random_state=42)
         else:
-            self.batch_idx += 1  # 다음 mini batch 를 준비
+            # 다음 mini batch 를 준비
+            self.batch_idx += 1
 
         return x_mini_batch, y_mini_batch, self.x_val, self.y_val
 
