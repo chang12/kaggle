@@ -136,10 +136,10 @@ def get_exactly_same_fc_with_blog():
     return input_images, predict
 
 
-def train(num_epoch, X_test, name, model_fn, batch_size=64, ratio_val=0.2):
+def train(num_epoch, name, model_fn, batch_size=64, ratio_val=0.2):
     input_images, predict = model_fn()
     truth = tf.placeholder(tf.float32, shape=(None, 30))
-    mask = tf.placeholder(tf.bool, shape=(None, 30))
+    mask = tf.logical_not(tf.is_nan(truth))
 
     loss = tf.losses.mean_squared_error(tf.boolean_mask(truth, mask),
                                         tf.boolean_mask(predict, mask))
@@ -164,9 +164,8 @@ def train(num_epoch, X_test, name, model_fn, batch_size=64, ratio_val=0.2):
 
             for b in range(provider.get_num_batch()):
                 x_train, y_train, x_val, y_val = provider.prepare()
-                m_train, m_val = np.isfinite(y_train), np.isfinite(y_val)
-                feed_dict_train = {input_images: x_train, truth: y_train, mask: m_train}
-                feed_dict_val = {input_images: x_val, truth: y_val, mask: m_val}
+                feed_dict_train = {input_images: x_train, truth: y_train}
+                feed_dict_val = {input_images: x_val, truth: y_val}
                 sess.run(optimizer, feed_dict=feed_dict_train)
 
             elapsed_ms = int(time.time() * 1000) - start_ms
@@ -184,12 +183,14 @@ def train(num_epoch, X_test, name, model_fn, batch_size=64, ratio_val=0.2):
                 save_path = "{}/ckpt".format(save_dir)
                 print("model has saved in path: {}".format(saver.save(sess, save_path)))
 
+        X_test, _ = load(test=True)
         y_pred = sess.run(predict, feed_dict={input_images: X_test})
 
     return y_pred
 
 
-def prepare_submission(X_test, dir_name, target_epoch, model_fn):
+def prepare_submission(dir_name, target_epoch, model_fn):
+    X_test, _ = load(test=True)
     ckpt_path = os.path.join(os.getcwd(), "checkpoints", dir_name, "{:05d}".format(target_epoch), "ckpt")
 
     input_images, predict = model_fn()

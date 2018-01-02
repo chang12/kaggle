@@ -1,7 +1,6 @@
-from utils import get_cnn, load, train
+from utils import get_cnn, train
 
-num_epoch = 100
-name = "test-spot-gpu-instance"
-X_test, _ = load(test=True)
+num_epoch = 500
+name = "cover_nan_data_500_epochs"
 
-y_pred = train(num_epoch, X_test, name, get_cnn)
+y_pred = train(num_epoch, name, get_cnn)
