@@ -136,7 +136,7 @@ def get_exactly_same_fc_with_blog():
     return input_images, predict
 
 
-def train(num_epoch, name, model_fn, batch_size=64, ratio_val=0.2, learning_rate=0.01):
+def train(num_epoch, name, model_fn, batch_size=64, ratio_val=0.2, learning_rate=0.01, save_every=100):
     input_images, predict = model_fn()
     truth = tf.placeholder(tf.float32, shape=(None, 30))
     mask = tf.logical_not(tf.is_nan(truth))
@@ -177,7 +177,7 @@ def train(num_epoch, name, model_fn, batch_size=64, ratio_val=0.2, learning_rate
             train_writer.flush()
             val_writer.flush()
 
-            if e % 100 == 0 or e == num_epoch:
+            if e % save_every == 0 or e == num_epoch:
                 save_dir = "checkpoints/{}_{}/{:05d}".format(datetime_now, name, e)
                 os.makedirs(save_dir)
                 save_path = "{}/ckpt".format(save_dir)
