@@ -1,6 +1,6 @@
 from utils import get_cnn, train
 
 num_epoch = 500
-name = "cover_nan_data_500_epochs"
+name = "batch_size=32&learning_rate=0.05"
 
-y_pred = train(num_epoch, name, get_cnn)
+y_pred = train(num_epoch, name, get_cnn, batch_size=32, learning_rate=0.05)

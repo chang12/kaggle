@@ -136,14 +136,14 @@ def get_exactly_same_fc_with_blog():
     return input_images, predict
 
 
-def train(num_epoch, name, model_fn, batch_size=64, ratio_val=0.2):
+def train(num_epoch, name, model_fn, batch_size=64, ratio_val=0.2, learning_rate=0.01):
     input_images, predict = model_fn()
     truth = tf.placeholder(tf.float32, shape=(None, 30))
     mask = tf.logical_not(tf.is_nan(truth))
 
     loss = tf.losses.mean_squared_error(tf.boolean_mask(truth, mask),
                                         tf.boolean_mask(predict, mask))
-    optimizer = tf.train.MomentumOptimizer(learning_rate=0.01, momentum=0.9, use_nesterov=True).minimize(loss)
+    optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.9, use_nesterov=True).minimize(loss)
 
     provider = MiniBatchProvider(batch_size=batch_size, ratio_val=ratio_val)
     saver = tf.train.Saver()
