@@ -156,8 +156,8 @@ def train(num_epoch, name, model_fn, batch_size=64, ratio_val=0.2, learning_rate
         datetime_now = datetime.now().strftime("%Y%m%d_%H:%M:%S")
         train_summary_path = "{}_{}_train".format(datetime_now, name)
         val_summary_path = "{}_{}_val".format(datetime_now, name)
-        train_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "summaries", train_summary_path))
-        val_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "summaries", val_summary_path))
+        train_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "test_summaries", train_summary_path))
+        val_writer = tf.summary.FileWriter(os.path.join(os.getcwd(), "test_summaries", val_summary_path))
 
         for e in range(1, num_epoch + 1):
             start_ms = int(time.time() * 1000)
@@ -178,7 +178,7 @@ def train(num_epoch, name, model_fn, batch_size=64, ratio_val=0.2, learning_rate
             val_writer.flush()
 
             if e % save_every == 0 or e == num_epoch:
-                save_dir = "checkpoints/{}_{}/{:05d}".format(datetime_now, name, e)
+                save_dir = "test_checkpoints/{}_{}/{:05d}".format(datetime_now, name, e)
                 os.makedirs(save_dir)
                 save_path = "{}/ckpt".format(save_dir)
                 print("model has saved in path: {}".format(saver.save(sess, save_path)))
@@ -191,7 +191,7 @@ def train(num_epoch, name, model_fn, batch_size=64, ratio_val=0.2, learning_rate
 
 def prepare_submission(dir_name, target_epoch, model_fn):
     X_test, _ = load(test=True)
-    ckpt_path = os.path.join(os.getcwd(), "checkpoints", dir_name, "{:05d}".format(target_epoch), "ckpt")
+    ckpt_path = os.path.join(os.getcwd(), "test_checkpoints", dir_name, "{:05d}".format(target_epoch), "ckpt")
 
     input_images, predict = model_fn()
     saver = tf.train.Saver()
